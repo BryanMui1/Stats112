@@ -1,0 +1,111 @@
+---
+title: "HW1"
+author: "Bryan Mui"
+date: "2025-10-13"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(tidyverse)
+df <- read_csv("macro_finance_dataset.csv")
+
+head(df)
+```
+
+```{r}
+library(corrplot)
+m <- cor(df)
+corrplot(m, method = 'number')
+```
+
+```{r}
+pairs(df)
+```
+
+## MANOVA model
+
+```{r}
+# manova_model <- manova(cbind(academic_confidence, happiness_climate, respect_diversity) ~ major + stress + transfer + stress:transfer,data = df)
+
+# Fit MANOVA
+manova_model <- manova(cbind(StockReturn, BondYield) ~ InterestRate + Inflation + GDPGrowth + InterestRate:GDPGrowth, data = df)
+
+# Summary of MANOVA
+summary(manova_model)
+```
+
+## Separate Regression
+
+```{r}
+# Regression for StockReturn
+model_stock <- lm(StockReturn ~ InterestRate + Inflation + GDPGrowth, data = df)
+summary(model_stock)
+
+# Regression for BondYield
+model_bond <- lm(BondYield ~ InterestRate + Inflation + GDPGrowth, data = df)
+summary(model_bond)
+
+```
+
+## Interaction Plots
+
+```{r}
+# Load library for plotting
+library(ggplot2)
+
+# Create interaction terms for plotting
+df$InterestRate_group <- cut(df$InterestRate, breaks=3, labels=c("Low", "Medium", "High"))
+
+# Interaction plot for StockReturn
+ggplot(df, aes(x=GDPGrowth, y=StockReturn, color=InterestRate_group)) +
+  geom_point(alpha=0.5) +
+  geom_smooth(method="lm", se=FALSE) +
+  labs(title="Interaction of InterestRate and GDPGrowth on StockReturn",
+       x="GDP Growth (%)",
+       y="Stock Return (%)",
+       color="Interest Rate") +
+  theme_minimal()
+
+# Interaction plot for BondYield
+ggplot(df, aes(x=GDPGrowth, y=BondYield, color=InterestRate_group)) +
+  geom_point(alpha=0.5) +
+  geom_smooth(method="lm", se=FALSE) +
+  labs(title="Interaction of InterestRate and GDPGrowth on BondYield",
+       x="GDP Growth (%)",
+       y="Bond Yield (%)",
+       color="Interest Rate") +
+  theme_minimal()
+```
+
+## VIF
+
+```{r}
+library(car)
+vif(model_stock)
+vif(model_bond)
+```
+
