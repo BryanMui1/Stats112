@@ -1,0 +1,240 @@
+---
+title: "bruhdge"
+author: "Bryan Mui UID 506021334"
+date: "2025-12-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Import necessary library
+library(dplyr)
+library(knitr)
+library(car)
+#library(kableExtra)
+
+# Read the final dataset
+data <- read.csv("df_2024_model.csv")
+
+# Rename the columns to be more readable for the regression analysis
+names(data) <- c("State", "Demographics", "Tot_citizen", "Tot_reg", "Prop_reg",
+                   "Tot_voted", "Prop_voted", "Voter_part_rate")
+
+# Establish the age levels as detailed by the census
+age_patterns <- c(
+  "18 to 24 years", "25 to 34 years", "35 to 44 years",
+  "45 to 64 years", "65 years and over"
+)
+
+# Establish the gender levels as detailed by the census
+gender_patterns <- c("Male", "Female")
+
+# Establish the region levels as detailed by the census (See Note)
+## Note: The region separations are defined here:
+### https://www2.census.gov/geo/pdfs/maps-data/maps/reference/us_regdiv.pdf
+west <- c("WASHINGTON", "OREGON", "MONTANA", "IDAHO", "WYOMING", "COLORADO", "NEW MEXICO",
+          "ARIZONA", "UTAH", "NEVADA", "CALIFORNIA", "HAWAII", "ALASKA")
+
+midwest <- c("NORTH DAKOTA", "SOUTH DAKOTA", "NEBRASKA", "KANSAS", "MINNESOTA", "IOWA", "MISSOURI",
+             "WISCONSIN", "ILLINOIS", "MICHIGAN", "INDIANA", "OHIO")
+
+northeast <- c("CONNECTICUT", "MAINE", "MASSACHUSETTS", "NEW HAMPSHIRE", "RHODE ISLAND", "VERMONT", "NEW JERSEY",
+               "NEW YORK", "PENNSYLVANIA")
+
+# Separate demographic and region factors of interest into separate columns for easier analysis
+data_24 <- data %>% filter(Demographics != "Total", State != "UNITED STATES")
+data_24["Age"] <- ifelse(data_24[["Demographics"]] %in% age_patterns, data_24[["Demographics"]], NA)
+data_24["Gender"] <- ifelse(data_24[["Demographics"]] %in% gender_patterns, data_24[["Demographics"]], NA)
+data_24["Race"] <- ifelse((!(data_24[["Demographics"]] %in% age_patterns) & !(data_24[["Demographics"]] %in% gender_patterns)),
+                          data_24[["Demographics"]], NA)
+
+data_24["Region"] <- "South"
+data_24["Region"] <- ifelse(data_24[["State"]] %in% west, "West", data_24[["Region"]])
+data_24["Region"] <- ifelse(data_24[["State"]] %in% midwest, "Midwest", data_24[["Region"]])
+data_24["Region"] <- ifelse(data_24[["State"]] %in% northeast, "Northeast", data_24[["Region"]])
+
+head(data_24)
+```
+
+# Contingency Tables
+
+Region
+```{r}
+contingency_region <- data_24 %>% 
+  group_by(Region) %>% 
+  summarise(Count=n())
+
+grand_total <- data_24 %>%
+  summarise(
+    Region = "Total", # Set a label for the total row
+    Count = n()   # Sum the 'count' column from the group summary
+  )
+
+contingency_region <- bind_rows(contingency_region, grand_total)
+contingency_region
+```
+
+```{r}
+(kable(contingency_region, format = "latex", caption = "Contingengy Table: Count by Region"))
+```
+
+
+Race
+```{r}
+contingency_race <- data_24 %>% 
+  filter(!is.na(Race)) %>%
+  group_by(Race) %>% 
+  summarise(Count=n())
+
+grand_total <- data_24 %>%
+  filter(!is.na(Race)) %>%
+  summarise(
+    Race = "Total", # Set a label for the total row
+    Count = n()   # Sum the 'count' column from the group summary
+  )
+
+contingency_race <- bind_rows(contingency_race, grand_total)
+contingency_race
+```
+
+```{r}
+(kable(contingency_region, format = "latex", caption = "Contingengy Table: Count by Race"))
+```
+
+Gender
+
+```{r}
+contingency_gender <- data_24 %>% 
+  filter(!is.na(Gender)) %>% 
+  group_by(Gender) %>% 
+  summarise(Count=n())
+
+grand_total_gender <- data_24 %>% 
+  filter(!is.na(Gender)) %>% 
+  summarise(
+    Gender = "Total", 
+    Count = n() 
+  )
+
+contingency_gender <- bind_rows(contingency_gender, grand_total_gender)
+contingency_gender
+```
+
+```{r}
+(kable(contingency_gender, format = "latex", caption = "Contingengy Table: Count by Gender"))
+```
+
+Age 
+
+```{r}
+contingency_age <- data_24 %>% 
+  filter(!is.na(Age)) %>% 
+  group_by(Age) %>% 
+  summarise(Count=n())
+
+grand_total_age <- data_24 %>% 
+  filter(!is.na(Age)) %>% 
+  summarise(
+    Age = "Total", 
+    Count = n() 
+  )
+
+contingency_age <- bind_rows(contingency_age, grand_total_age)
+contingency_age
+```
+
+```{r}
+(kable(contingency_gender, format = "latex", caption = "Contingengy Table: Count by Age"))
+```
+
+VIF
+
+Race + Region
+```{r}
+# --- Model A: Race + Region ---
+# Filter for non-NA values in Region and Race
+data_region_race <- data_24 %>%
+  filter(!is.na(Region), !is.na(Race))
+
+# Linear Model
+model_region_race <- lm(Voter_part_rate ~ Region + Race, data = data_region_race)
+
+# Calculate VIF
+vif_region_race <- vif(model_region_race)
+
+print("--- VIF: Region + Race (LaTeX) ---")
+print(vif_region_race)
+kable(as.data.frame(vif_region_race), format = "latex", caption = "VIF Results: Region and Race")
+```
+
+Region + Age
+```{r}
+# Filter for non-NA values in Region and Age
+data_region_age <- data_24 %>%
+  filter(!is.na(Region), !is.na(Age))
+
+# Linear Model
+model_region_age <- lm(Voter_part_rate ~ Region + Age, data = data_region_age)
+
+# Calculate VIF
+vif_region_age <- vif(model_region_age)
+
+print("--- VIF: Region + Age (LaTeX) ---")
+print(vif_region_age)
+kable(as.data.frame(vif_region_age), format = "latex", caption = "VIF Results: Region and Age")
+
+```
+
+Region + Gender
+
+```{r}
+# Filter for non-NA values in Region and Gender
+data_region_gender <- data_24 %>%
+  filter(!is.na(Region), !is.na(Gender))
+
+# Linear Model
+model_region_gender <- lm(Voter_part_rate ~ Region + Gender, data = data_region_gender)
+
+# Calculate VIF
+vif_region_gender <- vif(model_region_gender)
+
+print("--- VIF: Region + Gender (LaTeX) ---")
+print(vif_region_gender)
+kable(as.data.frame(vif_region_gender), format = "latex", caption = "VIF Results: Region and Gender")
+```
+
+VIF Debugging
+
+```{r}
+# # 1. Create a dataset where one variable is a perfect copy of another
+# data_vif_debug <- data_24 %>%
+#   filter(!is.na(Region), !is.na(Gender)) %>%
+#   mutate(
+#     Region = Region,
+#     Region_Copy = Region # Perfect correlation
+#   )
+# 
+# # 2. Linear Model with two identical predictors
+# # Note: lm() will often drop one of the perfectly correlated predictors automatically, 
+# # but VIF analysis should still flag the issue or throw an error/warning.
+# model_vif_debug <- lm(Voter_part_rate ~ Region + Region_Copy, data = data_vif_debug)
+# 
+# # 3. Calculate VIF
+# # This is expected to produce a high number (or an error/warning)
+# vif_vif_debug <- vif(model_vif_debug)
+# 
+# print("--- VIF: Debug Test (Region + Region_Copy) (LaTeX) ---")
+# # Only kable the result if the VIF calculation was successful
+# if (is.numeric(vif_vif_debug)) {
+#   kable(as.data.frame(vif_vif_debug), format = "latex", caption = "VIF Debug Results: Region and Region_Copy (Expected High Collinearity)")
+# } else {
+#   print("VIF calculation failed or returned non-numeric result due to perfect collinearity. Check model summary.")
+# }
+# 
+# summary(model_vif_debug)
+
+```
+
