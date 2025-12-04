@@ -1,0 +1,191 @@
+---
+title: "VIF and Contingency Table"
+author: "Bryan Mui UID 506021334"
+date: "2025-12-02"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(7777777)
+```
+
+## Setup
+
+```{r}
+# Load necessary libraries
+library(car)  # For calculating VIF
+library(dplyr)
+library(readr)
+library(knitr)
+library(broom)
+```
+
+Making an individual data set for each demographic
+
+## Copypasta
+
+```{r}
+df <- read_csv("df_2024_model.csv")
+
+# Define Region Mapping
+region_map <- c(
+  'Connecticut' = 'Northeast', 'Maine' = 'Northeast', 'Massachusetts' = 'Northeast', 
+  'New Hampshire' = 'Northeast', 'Rhode Island' = 'Northeast', 'Vermont' = 'Northeast', 
+  'New Jersey' = 'Northeast', 'New York' = 'Northeast', 'Pennsylvania' = 'Northeast',
+  'Illinois' = 'Midwest', 'Indiana' = 'Midwest', 'Michigan' = 'Midwest', 'Ohio' = 'Midwest', 
+  'Wisconsin' = 'Midwest', 'Iowa' = 'Midwest', 'Kansas' = 'Midwest', 'Minnesota' = 'Midwest', 
+  'Missouri' = 'Midwest', 'Nebraska' = 'Midwest', 'North Dakota' = 'Midwest', 
+  'South Dakota' = 'Midwest', 'Delaware' = 'South', 'Florida' = 'South', 'Georgia' = 'South', 
+  'Maryland' = 'South', 'North Carolina' = 'South', 'South Carolina' = 'South', 
+  'Virginia' = 'South', 'West Virginia' = 'South', 'Alabama' = 'South', 'Kentucky' = 'South', 
+  'Mississippi' = 'South', 'Tennessee' = 'South', 'Arkansas' = 'South', 'Louisiana' = 'South', 
+  'Oklahoma' = 'South', 'Texas' = 'South', 'District Of Columbia' = 'South', 
+  'Arizona' = 'West', 'Colorado' = 'West', 'Idaho' = 'West', 'Montana' = 'West', 
+  'Nevada' = 'West', 'New Mexico' = 'West', 'Utah' = 'West', 'Wyoming' = 'West', 
+  'Alaska' = 'West', 'California' = 'West', 'Hawaii' = 'West', 'Oregon' = 'West', 
+  'Washington' = 'West'
+)
+
+# Apply mapping
+df$State_Title <- tools::toTitleCase(tolower(df$State))
+df$Region <- region_map[df$State_Title]
+
+# Clean Data (Remove United States aggregate and rows with missing regions)
+df_clean <- df %>%
+  # filter(State_Title != 'United States', !is.na(Region)) %>%
+  filter(Demographic != "Total")
+
+
+
+# 
+# # ---------------------------------------------------------
+# # 3. Separate VIF Models
+# # ---------------------------------------------------------
+# 
+# # Define Groups
+# race_groups <- c('Asian alone', 'Asian alone or in combination', 'Black alone', 
+#                  'Black alone or in combination', 'Hispanic (any race)', 
+#                  'White alone', 'White alone or in combination', 
+#                  'White non-Hispanic alone')
+# gender_groups <- c('Male', 'Female')
+# 
+# # --- Model A: Race + Region ---
+# df_race <- df_clean %>% filter(Demographic %in% race_groups)
+# model_race <- lm(`Voter participation rate` ~ Demographic + Region, data = df_race)
+# vif_race <- vif(model_race)
+# 
+# print("--- VIF: Race + Region (LaTeX) ---")
+# (kable(as.data.frame(vif_race), format = "latex", caption = "VIF Results: Race and Region"))
+# 
+# # --- Model B: Gender + Region ---
+# df_gender <- df_clean %>% filter(Demographic %in% gender_groups)
+# model_gender <- lm(`Voter participation rate` ~ Demographic + Region, data = df_gender)
+# vif_gender <- vif(model_gender)
+# 
+# print("--- VIF: Gender + Region (LaTeX) ---")
+# (kable(as.data.frame(vif_gender), format = "latex", caption = "VIF Results: Gender and Region"))
+# 
+# # --- Model C: Region Only ---
+# # Note: VIF requires at least 2 predictors to calculate multicollinearity.
+# # We will fit the model using the 'Total' rows (State averages) and show the summary.
+# df_total <- df_clean %>% filter(Demographic == 'Total')
+# model_region <- lm(`Voter participation rate` ~ Region, data = df_total)
+# 
+# print("--- Model: Region Only (Summary) ---")
+# # Using broom::tidy to format model results nicely for kable
+# if(require(broom)) {
+#   (kable(tidy(model_region), format = "latex", caption = "Regression Results: Region Only"))
+# } else {
+#   print(summary(model_region))
+# }
+# 
+# # ---------------------------------------------------------
+# # 4. Average Participation Tables (LaTeX)
+# # ---------------------------------------------------------
+# 
+# # Region Average
+# region_stats <- df_total %>%
+#   group_by(Region) %>%
+#   summarise(Average_Participation = mean(`Voter participation rate`, na.rm = TRUE))
+# 
+# (kable(region_stats, format = "latex", caption = "Average Voter Participation by Region"))
+# 
+# # Age Average
+# age_groups <- c('18 to 24 years', '25 to 34 years', '35 to 44 years', '45 to 64 years', '65 years and over')
+# age_stats <- df_clean %>%
+#   filter(Demographic %in% age_groups) %>%
+#   group_by(Demographic) %>%
+#   summarise(Average_Participation = mean(`Voter participation rate`, na.rm = TRUE))
+# 
+# (kable(age_stats, format = "latex", caption = "Average Voter Participation by Age Group"))
+# 
+# # Race Average
+# race_stats <- df_clean %>%
+#   filter(Demographic %in% race_groups) %>%
+#   group_by(Demographic) %>%
+#   summarise(Average_Participation = mean(`Voter participation rate`, na.rm = TRUE))
+# 
+# (kable(race_stats, format = "latex", caption = "Average Voter Participation by Race"))
+```
+
+# Contingency Tables
+
+Region
+```{r}
+contingency_region <- df_clean %>% 
+  group_by(Region) %>% 
+  summarise(Count=n())
+
+grand_total <- df_clean %>%
+  summarise(
+    Region = "Total", # Set a label for the total row
+    Count = n()   # Sum the 'count' column from the group summary
+  )
+
+contingency_region <- bind_rows(contingency_region, grand_total)
+contingency_region
+```
+
+```{r}
+(kable(contingency_region, format = "latex", caption = "Contingengy Table: Region Counts"))
+```
+
+Race
+```{r}
+race <- c(
+  "Asian alone",
+  "Asian alone or in combination",
+  "Black alone",
+  "Black alone or in combination",
+  "Hispanic (any race)",
+  "White alone",
+  "White alone or in combination",
+  "White non-Hispanic alone"
+)
+contingency_race <- df_clean %>% 
+  filter(Demographic != "Total") %>%
+  filter(Demographic %in% race) %>%
+  rename(Race=Demographic) %>%
+  group_by(Race) %>% 
+  summarise(Count=n())
+
+grand_total <- contingency_race %>%
+  summarise(
+    Region = "Total", # Set a label for the total row
+    Count = n()   # Sum the 'count' column from the group summary
+  )
+
+contingency_race <- bind_rows(contingency_race, grand_total)
+contingency_race
+```
+
+# VIF
+
+Race + Region
+
+Gender + Region
+
+Age + Region
+
+
